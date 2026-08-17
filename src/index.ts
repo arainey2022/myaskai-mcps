@@ -1,6 +1,10 @@
 import { createMcpHandler } from 'agents/mcp/server';
 
-import { createServer, type ServerDependencies } from './server.ts';
+import {
+  browserManifest,
+  createServer,
+  type ServerDependencies,
+} from './server.ts';
 import type { Env, ExecutionContextLike } from './types.ts';
 
 const MCP_PATHS = new Set(['/mcp', '/mcp/']);
@@ -14,6 +18,23 @@ function textResponse(text: string, status: number, headers: HeadersInit = {}): 
       ...headers,
     },
   });
+}
+
+function browserManifestResponse(): Response {
+  return new Response(`${JSON.stringify(browserManifest(), null, 2)}\n`, {
+    status: 200,
+    headers: {
+      'cache-control': 'no-store',
+      'content-type': 'application/json; charset=utf-8',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}
+
+function wantsBrowserManifest(request: Request): boolean {
+  if (request.method !== 'GET') return false;
+  const accept = request.headers.get('accept')?.toLowerCase() ?? '';
+  return accept.includes('text/html') && !accept.includes('text/event-stream');
 }
 
 function normalizeMcpPath(request: Request): Request {
@@ -41,6 +62,10 @@ export async function handleRequest(
   const url = new URL(request.url);
   if (!MCP_PATHS.has(url.pathname)) {
     return textResponse('Not found', 404);
+  }
+
+  if (wantsBrowserManifest(request)) {
+    return browserManifestResponse();
   }
 
   if (request.method === 'POST') {

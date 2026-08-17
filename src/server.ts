@@ -14,21 +14,80 @@ import {
   PRICING_TOOL_NAME,
 } from './tools/pricing.ts';
 
-const READ_ONLY_ANNOTATIONS = {
+export const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
   idempotentHint: true,
   openWorldHint: false,
 } as const;
 
-const SEARCH_DESCRIPTION =
+export const SEARCH_DESCRIPTION =
   'Search the My AskAI knowledge base for relevant information, examples, API references, and guides. Use this for broad or conceptual questions. The result includes documentation links and paths. Use query_docs_filesystem_my_ask_ai to read a full page.';
 
-const FILESYSTEM_DESCRIPTION =
+export const FILESYSTEM_DESCRIPTION =
   'Run a read-only command against a virtual in-memory filesystem that contains only the My AskAI documentation and OpenAPI files. Use head or cat to read an .mdx page, rg for exact searches, and tree or ls for structure. The call is stateless. Supported commands include rg, grep, find, tree, ls, cat, head, tail, stat, wc, sort, uniq, cut, sed, awk, and jq. Output can be truncated, so prefer targeted commands.';
 
-const PRICING_DESCRIPTION =
+export const PRICING_DESCRIPTION =
   'Estimate the expected monthly My AskAI price. Ask for monthly support tickets. Chat percentage is optional and defaults to 100% when it is missing. The result includes a deterministic Pro and Scale quote, structured plan data, and a Markdown overview of Pro, Scale, and Enterprise.';
+
+export const SERVER_INSTRUCTIONS =
+  'Use these public, read-only tools for My AskAI documentation and pricing. They do not provide access to private customer data.';
+
+export const SEARCH_INPUT_SCHEMA = z.object({
+  query: z.string().describe('Search query'),
+});
+
+export const FILESYSTEM_INPUT_SCHEMA = z.object({
+  command: z.string().describe(
+    'A read-only command for the virtual documentation filesystem, such as `rg -il "keyword" /` or `head -80 /index.mdx`.',
+  ),
+});
+
+export const PRICING_INPUT_SCHEMA = z.object({
+  monthly_tickets: z.number().int().describe(
+    'Monthly support ticket or conversation count.',
+  ),
+  chat_percentage: z.number().optional().describe(
+    `Optional percentage of tickets that are chat, from 0 to 100. Defaults to ${DEFAULT_CHAT_PERCENTAGE} when missing.`,
+  ),
+});
+
+export function browserManifest(): Record<string, unknown> {
+  return {
+    server: {
+      name: 'My AskAI',
+      version: '1.0.0',
+      transport: 'http',
+    },
+    instructions: SERVER_INSTRUCTIONS,
+    capabilities: {
+      tools: { listChanged: true },
+    },
+    tools: [
+      {
+        name: 'search_my_ask_ai',
+        title: 'Search My AskAI documentation',
+        description: SEARCH_DESCRIPTION,
+        inputSchema: z.toJSONSchema(SEARCH_INPUT_SCHEMA),
+        annotations: READ_ONLY_ANNOTATIONS,
+      },
+      {
+        name: 'query_docs_filesystem_my_ask_ai',
+        title: 'Query My AskAI documentation files',
+        description: FILESYSTEM_DESCRIPTION,
+        inputSchema: z.toJSONSchema(FILESYSTEM_INPUT_SCHEMA),
+        annotations: READ_ONLY_ANNOTATIONS,
+      },
+      {
+        name: PRICING_TOOL_NAME,
+        title: 'Estimate My AskAI pricing',
+        description: PRICING_DESCRIPTION,
+        inputSchema: z.toJSONSchema(PRICING_INPUT_SCHEMA),
+        annotations: READ_ONLY_ANNOTATIONS,
+      },
+    ],
+  };
+}
 
 export interface ServerDependencies {
   fetchFn?: FetchLike;
@@ -46,8 +105,7 @@ export function createServer(env: Env, dependencies: ServerDependencies = {}): M
   const server = new McpServer(
     { name: 'myaskai-mcps', version: '1.0.0' },
     {
-      instructions:
-        'Use these public, read-only tools for My AskAI documentation and pricing. They do not provide access to private customer data.',
+      instructions: SERVER_INSTRUCTIONS,
     },
   );
 
@@ -56,9 +114,7 @@ export function createServer(env: Env, dependencies: ServerDependencies = {}): M
     {
       title: 'Search My AskAI documentation',
       description: SEARCH_DESCRIPTION,
-      inputSchema: z.object({
-        query: z.string().describe('Search query'),
-      }),
+      inputSchema: SEARCH_INPUT_SCHEMA,
       annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ query }) => callDocsTool(
@@ -73,11 +129,7 @@ export function createServer(env: Env, dependencies: ServerDependencies = {}): M
     {
       title: 'Query My AskAI documentation files',
       description: FILESYSTEM_DESCRIPTION,
-      inputSchema: z.object({
-        command: z.string().describe(
-          'A read-only command for the virtual documentation filesystem, such as `rg -il "keyword" /` or `head -80 /quickstart.mdx`.',
-        ),
-      }),
+      inputSchema: FILESYSTEM_INPUT_SCHEMA,
       annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ command }) => callDocsTool(
@@ -92,14 +144,7 @@ export function createServer(env: Env, dependencies: ServerDependencies = {}): M
     {
       title: 'Estimate My AskAI pricing',
       description: PRICING_DESCRIPTION,
-      inputSchema: z.object({
-        monthly_tickets: z.number().int().describe(
-          'Monthly support ticket or conversation count.',
-        ),
-        chat_percentage: z.number().optional().describe(
-          `Optional percentage of tickets that are chat, from 0 to 100. Defaults to ${DEFAULT_CHAT_PERCENTAGE} when missing.`,
-        ),
-      }),
+      inputSchema: PRICING_INPUT_SCHEMA,
       annotations: READ_ONLY_ANNOTATIONS,
     },
     async ({ monthly_tickets, chat_percentage }) => {
