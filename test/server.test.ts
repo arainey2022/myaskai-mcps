@@ -230,6 +230,69 @@ describe('MCP protocol surface', () => {
 });
 
 describe('HTTP routing and abuse protection', () => {
+  it.each(['/mcp', '/mcp/', '/mcp/?client=browser'])(
+    'returns the public tool manifest to a browser at %s',
+    async (path) => {
+      const response = await handleRequest(
+        new Request(`https://myaskai.com${path}`, {
+          method: 'GET',
+          headers: {
+            accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        }),
+        testEnv(),
+        ctx,
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toBe(
+        'application/json; charset=utf-8',
+      );
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+
+      const manifest = await response.json() as {
+        capabilities: Record<string, unknown>;
+        tools: Array<Record<string, unknown>>;
+      };
+      expect(manifest.capabilities).toEqual({ tools: { listChanged: true } });
+      expect(manifest).not.toHaveProperty('resources');
+      expect(manifest).not.toHaveProperty('prompts');
+      expect(manifest.tools.map((tool) => tool.name)).toEqual([
+        'search_my_ask_ai',
+        'query_docs_filesystem_my_ask_ai',
+        'estimate-pricing',
+      ]);
+      expect(
+        manifest.tools.some((tool) => tool.name === 'submit_feedback'),
+      ).toBe(false);
+      for (const tool of manifest.tools) {
+        expect(tool.annotations).toEqual({
+          readOnlyHint: true,
+          destructiveHint: false,
+          idempotentHint: true,
+          openWorldHint: false,
+        });
+      }
+      const pricingTool = manifest.tools.find(
+        (tool) => tool.name === 'estimate-pricing',
+      );
+      const pricingSchema = pricingTool?.inputSchema as { required?: string[] };
+      expect(pricingSchema.required).toEqual(['monthly_tickets']);
+    },
+  );
+
+  it('keeps MCP event-stream GET requests on the protocol handler', async () => {
+    const response = await handleRequest(
+      new Request('https://myaskai.com/mcp', {
+        method: 'GET',
+        headers: { accept: 'text/event-stream' },
+      }),
+      testEnv(),
+      ctx,
+    );
+    expect(response.status).toBe(405);
+  });
+
   it.each(['/mcp/', '/mcp?client=test', '/mcp/?client=test'])(
     'accepts %s',
     async (path) => {

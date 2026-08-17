@@ -4,6 +4,8 @@ Public, read-only Model Context Protocol tools for My AskAI.
 
 Endpoint: `https://myaskai.com/mcp`
 
+Open the endpoint in a browser to view the public tool manifest.
+
 ## Tools
 
 | Tool | Input | Result |
