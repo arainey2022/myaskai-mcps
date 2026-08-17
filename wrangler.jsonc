@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "myaskai-mcps-dev",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  },
+  "vars": {
+    "DOCS_MCP_UPSTREAM": "https://myaskai.mintlify.app/mcp",
+    "UPSTREAM_TIMEOUT_MS": "15000"
+  },
+  "ratelimits": [
+    {
+      "name": "MCP_RATE_LIMIT",
+      "namespace_id": "26081702",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ]
+}
