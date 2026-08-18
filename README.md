@@ -70,6 +70,9 @@ execution. Production uses `myaskai_mcp_usage`; development uses
 No tool arguments, search text, filesystem commands, response content, IP
 addresses, user agents, or client names are recorded.
 
+Cloudflare invocation logs are disabled. The Worker keeps only the structured
+tool log and Analytics Engine event described above.
+
 Analytics Engine retains these aggregate events for three months.
 
 Calls by tool for the last 30 days:
