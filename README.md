@@ -5,8 +5,9 @@ Public, read-only Model Context Protocol tools for My AskAI.
 Canonical endpoint: `https://mcp.myaskai.com/mcp`
 
 The previous `https://myaskai.com/mcp` endpoint remains a temporary protocol
-alias until 17 September 2026. Browser requests to that URL serve the My AskAI
-website landing page.
+alias until 17 September 2026. Browser requests to that URL pass to the My
+AskAI website origin. They return the website's branded 404 until the separate
+landing page is published.
 
 Open the endpoint in a browser to view the public tool manifest.
 
