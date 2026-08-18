@@ -305,7 +305,7 @@ describe('HTTP routing and abuse protection', () => {
     },
   );
 
-  it.each(['/mcp/other', '/mcps', '/', '/pricing'])(
+  it.each(['/mcp-docs', '/mcp/other', '/MCP', '/mcps', '/', '/pricing'])(
     'returns 404 for %s',
     async (path) => {
       const response = await handleRequest(
