@@ -117,6 +117,7 @@ describe('pricing parity with the mono-agent Python implementation', () => {
 
   it('does not add a quote overview to invalid input', () => {
     const result = pricingToolResult(-1, 80);
+    expect(result.isError).toBe(true);
     expect(result.structuredContent).toEqual({
       ok: false,
       error: 'monthly_tickets must be zero or more',

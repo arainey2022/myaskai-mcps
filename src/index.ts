@@ -8,6 +8,7 @@ import {
 import type { Env, ExecutionContextLike } from './types.ts';
 
 const MCP_PATHS = new Set(['/mcp', '/mcp/']);
+const CANONICAL_MCP_HOST = 'mcp.myaskai.com';
 
 function textResponse(text: string, status: number, headers: HeadersInit = {}): Response {
   return new Response(text, {
@@ -20,19 +21,39 @@ function textResponse(text: string, status: number, headers: HeadersInit = {}): 
   });
 }
 
-function browserManifestResponse(): Response {
-  return new Response(`${JSON.stringify(browserManifest(), null, 2)}\n`, {
-    status: 200,
+function browserManifestResponse(headOnly = false): Response {
+  return new Response(
+    headOnly ? null : `${JSON.stringify(browserManifest(), null, 2)}\n`,
+    {
+      status: 200,
+      headers: {
+        'cache-control': 'no-store',
+        'content-type': 'application/json; charset=utf-8',
+        'x-content-type-options': 'nosniff',
+      },
+    },
+  );
+}
+
+function canonicalMcpRedirect(url: URL): Response {
+  const location = new URL('/mcp', url.origin);
+  return new Response(null, {
+    status: 308,
     headers: {
       'cache-control': 'no-store',
-      'content-type': 'application/json; charset=utf-8',
-      'x-content-type-options': 'nosniff',
+      location: location.toString(),
     },
   });
 }
 
+function isBrowserNavigation(request: Request): boolean {
+  if (!['GET', 'HEAD'].includes(request.method)) return false;
+  const accept = request.headers.get('accept')?.toLowerCase() ?? '';
+  return !accept.includes('text/event-stream');
+}
+
 function wantsBrowserManifest(request: Request): boolean {
-  if (request.method !== 'GET') return false;
+  if (!['GET', 'HEAD'].includes(request.method)) return false;
   const accept = request.headers.get('accept')?.toLowerCase() ?? '';
   return accept.includes('text/html') && !accept.includes('text/event-stream');
 }
@@ -61,11 +82,17 @@ export async function handleRequest(
 ): Promise<Response> {
   const url = new URL(request.url);
   if (!MCP_PATHS.has(url.pathname)) {
+    if (
+      url.hostname.toLowerCase() === CANONICAL_MCP_HOST
+      && isBrowserNavigation(request)
+    ) {
+      return canonicalMcpRedirect(url);
+    }
     return textResponse('Not found', 404);
   }
 
   if (wantsBrowserManifest(request)) {
-    return browserManifestResponse();
+    return browserManifestResponse(request.method === 'HEAD');
   }
 
   if (request.method === 'POST') {
@@ -77,7 +104,10 @@ export async function handleRequest(
   }
 
   const handler = createMcpHandler(
-    () => createServer(env, dependencies),
+    () => createServer(env, {
+      ...dependencies,
+      sourceHost: dependencies.sourceHost ?? url.hostname.toLowerCase(),
+    }),
     {
       route: '/mcp',
       corsOptions: { origin: 'https://myaskai.com' },

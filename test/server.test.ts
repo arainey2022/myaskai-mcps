@@ -20,6 +20,7 @@ function testEnv(limit: RateLimitBinding = { limit: async () => ({ success: true
     DOCS_MCP_UPSTREAM: 'https://myaskai.mintlify.app/mcp',
     UPSTREAM_TIMEOUT_MS: '15000',
     MCP_RATE_LIMIT: limit,
+    MCP_USAGE: { writeDataPoint: vi.fn() },
   };
 }
 
@@ -95,8 +96,17 @@ describe('MCP protocol surface', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(rpc.result).toMatchObject({
       protocolVersion: '2025-06-18',
-      serverInfo: { name: 'myaskai-mcps', version: '1.0.0' },
+      serverInfo: { name: 'myaskai', version: '1.0.0' },
     });
+    expect(rpc.result?.instructions).toContain(
+      'Use search_my_ask_ai for broad documentation',
+    );
+    expect(rpc.result?.instructions).toContain(
+      'Use query_docs_filesystem_my_ask_ai for exact text',
+    );
+    expect(rpc.result?.instructions).toContain(
+      'Use estimate_pricing for cost, price, quote',
+    );
     const capabilities = rpc.result?.capabilities as Record<string, unknown>;
     expect(capabilities).toHaveProperty('tools');
     expect(capabilities).not.toHaveProperty('resources');
@@ -134,7 +144,7 @@ describe('MCP protocol surface', () => {
     expect(tools.map((tool) => tool.name)).toEqual([
       'search_my_ask_ai',
       'query_docs_filesystem_my_ask_ai',
-      'estimate-pricing',
+      'estimate_pricing',
     ]);
     for (const tool of tools) {
       expect(tool.annotations).toMatchObject({
@@ -144,7 +154,12 @@ describe('MCP protocol surface', () => {
         openWorldHint: false,
       });
     }
-    const pricingTool = tools.find((tool) => tool.name === 'estimate-pricing');
+    expect(String(tools[0]?.description)).toMatch(/^How do I, where can I find/);
+    expect(String(tools[1]?.description)).toMatch(/^Full page, exact wording/);
+    const pricingTool = tools.find((tool) => tool.name === 'estimate_pricing');
+    expect(String(pricingTool?.description)).toMatch(
+      /^Cost, price, how much, quote, per ticket, or monthly bill/,
+    );
     const pricingSchema = pricingTool?.inputSchema as { required?: string[] };
     expect(pricingSchema.required).toEqual(['monthly_tickets']);
   });
@@ -173,7 +188,7 @@ describe('MCP protocol surface', () => {
       id: 4,
       method: 'tools/call',
       params: {
-        name: 'estimate-pricing',
+        name: 'estimate_pricing',
         arguments: { monthly_tickets: 2000, chat_percentage: 80 },
       },
     }, { logger: vi.fn() });
@@ -196,7 +211,7 @@ describe('MCP protocol surface', () => {
       id: 12,
       method: 'tools/call',
       params: {
-        name: 'estimate-pricing',
+        name: 'estimate_pricing',
         arguments: { monthly_tickets: 2000 },
       },
     }, { logger: vi.fn() });
@@ -204,6 +219,69 @@ describe('MCP protocol surface', () => {
       ok: true,
       inputs: { chat_percentage: 100, email_percentage: 0 },
     });
+  });
+
+  it('writes privacy-safe analytics for successful and failed tool calls', async () => {
+    const writeDataPoint = vi.fn();
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const env: Env = {
+      ...testEnv(),
+      MCP_USAGE: { writeDataPoint },
+    };
+
+    await postRpc({
+      jsonrpc: '2.0',
+      id: 13,
+      method: 'tools/call',
+      params: {
+        name: 'estimate_pricing',
+        arguments: { monthly_tickets: 2_000 },
+      },
+    }, { env });
+    await postRpc({
+      jsonrpc: '2.0',
+      id: 14,
+      method: 'tools/call',
+      params: {
+        name: 'estimate_pricing',
+        arguments: { monthly_tickets: -1 },
+      },
+    }, { env });
+    await postRpc({
+      jsonrpc: '2.0',
+      id: 15,
+      method: 'tools/call',
+      params: {
+        name: 'search_my_ask_ai',
+        arguments: { query: 'private search text' },
+      },
+    }, { env, fetchFn: upstreamFetch() });
+
+    expect(writeDataPoint).toHaveBeenCalledTimes(3);
+    expect(writeDataPoint).toHaveBeenNthCalledWith(1, {
+      indexes: ['myaskai.com'],
+      blobs: ['estimate_pricing', 'ok'],
+      doubles: [expect.any(Number), 0],
+    });
+    expect(writeDataPoint).toHaveBeenNthCalledWith(2, {
+      indexes: ['myaskai.com'],
+      blobs: ['estimate_pricing', 'tool_error'],
+      doubles: [expect.any(Number), 0],
+    });
+    expect(writeDataPoint).toHaveBeenNthCalledWith(3, {
+      indexes: ['myaskai.com'],
+      blobs: ['search_my_ask_ai', 'ok'],
+      doubles: [expect.any(Number), 200],
+    });
+    const written = JSON.stringify(writeDataPoint.mock.calls);
+    expect(written).not.toContain('monthly_tickets');
+    expect(written).not.toContain('chat_percentage');
+    expect(written).not.toContain('private search text');
+    expect(info).toHaveBeenCalledWith(expect.objectContaining({
+      event: 'mcp_tool',
+      source_host: 'myaskai.com',
+    }));
+    info.mockRestore();
   });
 
   it('rejects submit_feedback and does not call upstream', async () => {
@@ -234,7 +312,7 @@ describe('HTTP routing and abuse protection', () => {
     'returns the public tool manifest to a browser at %s',
     async (path) => {
       const response = await handleRequest(
-        new Request(`https://myaskai.com${path}`, {
+        new Request(`https://mcp.myaskai.com${path}`, {
           method: 'GET',
           headers: {
             accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -260,7 +338,7 @@ describe('HTTP routing and abuse protection', () => {
       expect(manifest.tools.map((tool) => tool.name)).toEqual([
         'search_my_ask_ai',
         'query_docs_filesystem_my_ask_ai',
-        'estimate-pricing',
+        'estimate_pricing',
       ]);
       expect(
         manifest.tools.some((tool) => tool.name === 'submit_feedback'),
@@ -274,7 +352,7 @@ describe('HTTP routing and abuse protection', () => {
         });
       }
       const pricingTool = manifest.tools.find(
-        (tool) => tool.name === 'estimate-pricing',
+        (tool) => tool.name === 'estimate_pricing',
       );
       const pricingSchema = pricingTool?.inputSchema as { required?: string[] };
       expect(pricingSchema.required).toEqual(['monthly_tickets']);
@@ -291,6 +369,70 @@ describe('HTTP routing and abuse protection', () => {
       ctx,
     );
     expect(response.status).toBe(405);
+  });
+
+  it.each(['/', '/mcp-docs', '/mcp/other', '/MCP', '/pricing'])(
+    'redirects browser navigation on the MCP subdomain from %s to /mcp',
+    async (path) => {
+      const response = await handleRequest(
+        new Request(`https://mcp.myaskai.com${path}`, {
+          method: 'GET',
+          headers: { accept: 'text/html' },
+        }),
+        testEnv(),
+        ctx,
+      );
+      expect(response.status).toBe(308);
+      expect(response.headers.get('location')).toBe(
+        'https://mcp.myaskai.com/mcp',
+      );
+      expect(response.headers.get('cache-control')).toBe('no-store');
+    },
+  );
+
+  it('redirects HEAD navigation without a response body', async () => {
+    const response = await handleRequest(
+      new Request('https://mcp.myaskai.com/mcp-docs', {
+        method: 'HEAD',
+        headers: { accept: 'text/html' },
+      }),
+      testEnv(),
+      ctx,
+    );
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe(
+      'https://mcp.myaskai.com/mcp',
+    );
+    expect(await response.text()).toBe('');
+  });
+
+  it('returns manifest headers without a body for HEAD /mcp', async () => {
+    const response = await handleRequest(
+      new Request('https://mcp.myaskai.com/mcp', {
+        method: 'HEAD',
+        headers: { accept: 'text/html' },
+      }),
+      testEnv(),
+      ctx,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe(
+      'application/json; charset=utf-8',
+    );
+    expect(await response.text()).toBe('');
+  });
+
+  it('does not redirect protocol traffic on an unknown subdomain path', async () => {
+    const response = await handleRequest(
+      new Request('https://mcp.myaskai.com/mcp-docs', {
+        method: 'GET',
+        headers: { accept: 'text/event-stream' },
+      }),
+      testEnv(),
+      ctx,
+    );
+    expect(response.status).toBe(404);
+    expect(response.headers.get('location')).toBeNull();
   });
 
   it.each(['/mcp/', '/mcp?client=test', '/mcp/?client=test'])(

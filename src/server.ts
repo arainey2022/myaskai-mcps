@@ -1,10 +1,15 @@
 import { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 
-import type { Env, FetchLike, SafeLogger } from './types.ts';
+import type {
+  Env,
+  FetchLike,
+  SafeLogger,
+  SafeToolEvent,
+  SafeUsageEvent,
+} from './types.ts';
 import {
   callDocsTool,
-  consoleSafeLogger,
   DEFAULT_DOCS_MCP_UPSTREAM,
   DEFAULT_UPSTREAM_TIMEOUT_MS,
 } from './tools/docs-proxy.ts';
@@ -22,16 +27,16 @@ export const READ_ONLY_ANNOTATIONS = {
 } as const;
 
 export const SEARCH_DESCRIPTION =
-  'Search the My AskAI knowledge base for relevant information, examples, API references, and guides. Use this for broad or conceptual questions. The result includes documentation links and paths. Use query_docs_filesystem_my_ask_ai to read a full page.';
+  'How do I, where can I find, does My AskAI support, setup, integration, API, feature, or troubleshooting questions: search the My AskAI knowledge base for relevant information, examples, API references, and guides. Use this first for broad or conceptual questions. The result includes documentation links and paths. Use query_docs_filesystem_my_ask_ai to read a full page.';
 
 export const FILESYSTEM_DESCRIPTION =
-  'Run a read-only command against a virtual in-memory filesystem that contains only the My AskAI documentation and OpenAPI files. Use head or cat to read an .mdx page, rg for exact searches, and tree or ls for structure. The call is stateless. Supported commands include rg, grep, find, tree, ls, cat, head, tail, stat, wc, sort, uniq, cut, sed, awk, and jq. Output can be truncated, so prefer targeted commands.';
+  'Full page, exact wording, API schema, show the file, list documentation files, or search the docs filesystem: run a read-only command against a virtual in-memory filesystem that contains only the My AskAI documentation and OpenAPI files. Use this after search_my_ask_ai identifies a useful path, or use it directly when you know the path. Use head or cat to read an .mdx page, rg for exact searches, and tree or ls for structure. The call is stateless. Supported commands include rg, grep, find, tree, ls, cat, head, tail, stat, wc, sort, uniq, cut, sed, awk, and jq. Output can be truncated, so prefer targeted commands.';
 
 export const PRICING_DESCRIPTION =
-  'Estimate the expected monthly My AskAI price. Ask for monthly support tickets. Chat percentage is optional and defaults to 100% when it is missing. The result includes a deterministic Pro and Scale quote, structured plan data, and a Markdown overview of Pro, Scale, and Enterprise.';
+  'Cost, price, how much, quote, per ticket, or monthly bill: estimate the expected monthly My AskAI price. Use this for pricing questions and plan-cost comparisons. Ask for monthly support tickets when they are missing. Chat percentage is optional and defaults to 100% when it is missing. The result includes a deterministic Pro and Scale quote, structured plan data, and a Markdown overview of Pro, Scale, and Enterprise.';
 
 export const SERVER_INSTRUCTIONS =
-  'Use these public, read-only tools for My AskAI documentation and pricing. They do not provide access to private customer data.';
+  'Use search_my_ask_ai for broad documentation, setup, integration, API, feature, and troubleshooting questions. Use query_docs_filesystem_my_ask_ai for exact text, complete pages, known paths, and OpenAPI files. Use estimate_pricing for cost, price, quote, per-ticket, and monthly-bill questions. Ask for monthly ticket volume before calling estimate_pricing when it is missing; chat_percentage is optional and defaults to 100. All tools are public and read-only. They do not provide access to private customer data, so do not use them for account-specific questions.';
 
 export const SEARCH_INPUT_SCHEMA = z.object({
   query: z.string().describe('Search query'),
@@ -55,7 +60,7 @@ export const PRICING_INPUT_SCHEMA = z.object({
 export function browserManifest(): Record<string, unknown> {
   return {
     server: {
-      name: 'My AskAI',
+      name: 'myaskai',
       version: '1.0.0',
       transport: 'http',
     },
@@ -92,10 +97,34 @@ export function browserManifest(): Record<string, unknown> {
 export interface ServerDependencies {
   fetchFn?: FetchLike;
   logger?: SafeLogger;
+  sourceHost?: string;
+}
+
+export function createUsageLogger(env: Env, sourceHost: string): SafeLogger {
+  return (event: SafeToolEvent) => {
+    const usageEvent: SafeUsageEvent = {
+      ...event,
+      source_host: sourceHost,
+    };
+    console.info(usageEvent);
+    try {
+      env.MCP_USAGE.writeDataPoint({
+        indexes: [sourceHost],
+        blobs: [event.tool, event.outcome],
+        doubles: [event.duration_ms, event.upstream_status ?? 0],
+      });
+    } catch {
+      console.warn({
+        event: 'mcp_usage_write_error',
+        source_host: sourceHost,
+      });
+    }
+  };
 }
 
 export function createServer(env: Env, dependencies: ServerDependencies = {}): McpServer {
-  const logger = dependencies.logger ?? consoleSafeLogger;
+  const logger = dependencies.logger
+    ?? createUsageLogger(env, dependencies.sourceHost ?? 'unknown');
   const fetchFn = dependencies.fetchFn ?? fetch;
   const upstreamUrl = env.DOCS_MCP_UPSTREAM || DEFAULT_DOCS_MCP_UPSTREAM;
   const parsedTimeout = Number.parseInt(env.UPSTREAM_TIMEOUT_MS, 10);
@@ -103,7 +132,7 @@ export function createServer(env: Env, dependencies: ServerDependencies = {}): M
     ? parsedTimeout
     : DEFAULT_UPSTREAM_TIMEOUT_MS;
   const server = new McpServer(
-    { name: 'myaskai-mcps', version: '1.0.0' },
+    { name: 'myaskai', version: '1.0.0' },
     {
       instructions: SERVER_INSTRUCTIONS,
     },

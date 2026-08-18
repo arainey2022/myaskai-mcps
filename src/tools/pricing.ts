@@ -1,6 +1,6 @@
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 
-export const PRICING_TOOL_NAME = 'estimate-pricing';
+export const PRICING_TOOL_NAME = 'estimate_pricing';
 export const PRICING_PAGE_URL = 'https://myaskai.com/pricing';
 export const SCALE_ASSUMPTION_MONTHLY_TICKETS = 10_000;
 export const DEFAULT_CHAT_PERCENTAGE = 100;
@@ -218,6 +218,7 @@ export function pricingToolResult(
     return {
       content: [{ type: 'text', text: JSON.stringify(result) }],
       structuredContent: result,
+      isError: true,
     };
   }
 

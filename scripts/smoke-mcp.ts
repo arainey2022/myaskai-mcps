@@ -36,20 +36,24 @@ const initialized = await rpc('initialize', {
 if (initialized.protocolVersion !== '2025-06-18') {
   throw new Error('Initialization returned an unexpected protocol version');
 }
+const serverInfo = initialized.serverInfo as Record<string, unknown>;
+if (serverInfo.name !== 'myaskai') {
+  throw new Error(`Unexpected server identity: ${String(serverInfo.name)}`);
+}
 
 const listed = await rpc('tools/list', {});
 const toolNames = (listed.tools as Array<{ name: string }>).map((tool) => tool.name);
 const expected = [
   'search_my_ask_ai',
   'query_docs_filesystem_my_ask_ai',
-  'estimate-pricing',
+  'estimate_pricing',
 ];
 if (JSON.stringify(toolNames) !== JSON.stringify(expected)) {
   throw new Error(`Unexpected tools: ${toolNames.join(', ')}`);
 }
 
 const pricing = await rpc('tools/call', {
-  name: 'estimate-pricing',
+  name: 'estimate_pricing',
   arguments: { monthly_tickets: 2_000 },
 });
 const pricingData = pricing.structuredContent as Record<string, unknown>;

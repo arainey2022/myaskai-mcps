@@ -144,7 +144,7 @@ function errorResult(category: SafeToolEvent['outcome']): CallToolResult {
 }
 
 export const consoleSafeLogger: SafeLogger = (event) => {
-  console.info(JSON.stringify(event));
+  console.info(event);
 };
 
 export interface CallDocsToolOptions {

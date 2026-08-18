@@ -6,7 +6,12 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": false,
-  "routes": [],
+  "routes": [
+    {
+      "pattern": "mcp.myaskai.com",
+      "custom_domain": true
+    }
+  ],
   "observability": {
     "enabled": true,
     "logs": {
@@ -14,6 +19,12 @@
       "invocation_logs": true
     }
   },
+  "analytics_engine_datasets": [
+    {
+      "binding": "MCP_USAGE",
+      "dataset": "myaskai_mcp_usage"
+    }
+  ],
   "vars": {
     "DOCS_MCP_UPSTREAM": "https://myaskai.mintlify.app/mcp",
     "UPSTREAM_TIMEOUT_MS": "15000"
