@@ -101,7 +101,7 @@ Error rate for the last 30 days:
 ```sql
 SELECT
   blob1 AS tool,
-  100.0 * SUM(CASE WHEN blob2 = 'ok' THEN 0 ELSE _sample_interval END)
+  100.0 * sumIf(_sample_interval, blob2 != 'ok')
     / SUM(_sample_interval) AS error_percent
 FROM myaskai_mcp_usage
 WHERE timestamp > NOW() - INTERVAL '30' DAY
