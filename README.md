@@ -1,49 +1,83 @@
-# My AskAI MCPs
+# Explore My AskAI with your AI assistant
 
-Public, read-only Model Context Protocol tools for My AskAI.
+**The official My AskAI MCP server is live and public.**
 
-Endpoint: `https://myaskai.com/mcp`
+It is free, read-only, and available now. You do not need a My AskAI account or login.
 
-Open the endpoint in a browser to view the public tool manifest.
+## What is My AskAI?
 
-## Tools
+My AskAI is an AI customer support agent for SaaS and e-commerce teams.
 
-| Tool | Input | Result |
-| --- | --- | --- |
-| `search_my_ask_ai` | Required `query: string` | My AskAI documentation search results. |
-| `query_docs_filesystem_my_ask_ai` | Required `command: string` | Results from the read-only documentation filesystem. |
-| `estimate-pricing` | Required `monthly_tickets: integer`; optional `chat_percentage: number` | Pro and Scale quotes, plus a plan overview. |
+It works inside the helpdesk you already use, including Intercom, Zendesk, Gorgias, Freshdesk, and HubSpot. It answers common customer questions from your company knowledge and shows the sources behind its answers. When a customer needs more help, it passes the conversation to your support team.
 
-If `chat_percentage` is missing, `estimate-pricing` uses `100`.
+My AskAI also turns customer conversations into useful insights. This helps you find product feedback, bugs, feature requests, and gaps in your support content.
 
-The server does not require login. It exposes no resources or prompts.
+My AskAI is used by teams at Customer.io, Freecash, Swytch, Zinc, Zeffy, and more.
 
-## Development
+[Learn more about My AskAI](https://myaskai.com/) · [Read customer stories](https://myaskai.com/blog/tags/case-study-posts)
 
-Requires Node.js 22.
+## Explore My AskAI through our public MCP
 
-```sh
-npm ci
-npm run dev
+Connect the live My AskAI MCP server to ChatGPT, Codex, Claude, or any other AI assistant that supports MCP.
+
+Your assistant can then help you:
+
+- Understand what My AskAI does
+- Decide if My AskAI is suitable for your business
+- Explore features and integrations
+- Find setup and troubleshooting guidance
+- Learn how My AskAI works with your existing helpdesk
+- Compare available plans
+- Estimate your expected monthly price
+- Find the correct source when you need more information
+
+## Add My AskAI to your assistant
+
+Copy the text below and give it to your AI assistant:
+
+```text
+Please add the live, public My AskAI MCP server to my AI assistant.
+
+Server name: myaskai
+Server address: https://mcp.myaskai.com/mcp
+
+The server is free, public, and read-only. No My AskAI login is required.
 ```
 
-The local endpoint is `http://localhost:8787/mcp`.
+You can also visit the [My AskAI MCP page](https://myaskai.com/mcp) and select **Copy agent setup instructions**.
 
-Run all checks:
+## Questions you can ask
 
-```sh
-npm run check
-npm run check:production
-npm run check:upstream
-```
+Try questions such as:
 
-Run a local smoke test while the Worker is running:
+- “What is My AskAI, and how could it reduce our support workload?”
+- “Is My AskAI suitable for a SaaS or e-commerce business?”
+- “How does My AskAI work with Zendesk?”
+- “Which knowledge sources can I connect?”
+- “Can My AskAI use live customer or order information?”
+- “Compare the Pro and Scale plans.”
+- “Estimate our price for 5,000 monthly support tickets.”
 
-```sh
-npm run smoke -- --live-docs
-```
+## Safe and open access
 
-Development and production deploy workflows are manual.
+The public My AskAI MCP server:
+
+- Is live and available now
+- Is free to use
+- Is read-only
+- Does not require authentication
+- Does not access private My AskAI accounts
+- Does not access customer conversations or customer data
+- Uses published My AskAI information and pricing data
+
+## Learn more
+
+- [Explore the live MCP server](https://myaskai.com/mcp)
+- [Visit My AskAI](https://myaskai.com/)
+- [Read the help documentation](https://support.myaskai.com/)
+- [View pricing](https://myaskai.com/pricing)
+- [See customer case studies](https://myaskai.com/blog/tags/case-study-posts)
+- [Book a demo](https://myaskai.com/)
 
 ## License
 
