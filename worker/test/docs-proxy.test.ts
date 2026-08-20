@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   callDocsTool,
   DOCS_TOOL_NAMES,
+  MAX_UPSTREAM_RESPONSE_BYTES,
   parseMcpHttpBody,
 } from '../src/tools/docs-proxy.ts';
 import type { FetchLike, SafeToolEvent } from '../src/types.ts';
@@ -133,6 +134,46 @@ describe('documentation proxy', () => {
       { command: 'cat /quickstart.mdx' },
       {
         fetchFn: async () => new Response('{"wrong":true}', {
+          headers: { 'content-type': 'application/json' },
+        }),
+        logger: vi.fn(),
+      },
+    );
+    expect(result).toMatchObject({ isError: true });
+    expect(JSON.stringify(result)).toContain('invalid response');
+  });
+
+  it('rejects a declared upstream response over 2 MiB', async () => {
+    const result = await callDocsTool(
+      'search_my_ask_ai',
+      { query: 'bounded response' },
+      {
+        fetchFn: async () => new Response('{}', {
+          headers: {
+            'content-length': String(MAX_UPSTREAM_RESPONSE_BYTES + 1),
+            'content-type': 'application/json',
+          },
+        }),
+        logger: vi.fn(),
+      },
+    );
+    expect(result).toMatchObject({ isError: true });
+    expect(JSON.stringify(result)).toContain('invalid response');
+  });
+
+  it('stops reading a streamed upstream response over 2 MiB', async () => {
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(MAX_UPSTREAM_RESPONSE_BYTES));
+        controller.enqueue(new Uint8Array(1));
+        controller.close();
+      },
+    });
+    const result = await callDocsTool(
+      'search_my_ask_ai',
+      { query: 'bounded stream' },
+      {
+        fetchFn: async () => new Response(body, {
           headers: { 'content-type': 'application/json' },
         }),
         logger: vi.fn(),

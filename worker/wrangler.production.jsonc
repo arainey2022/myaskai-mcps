@@ -5,20 +5,26 @@
   "compatibility_date": "2026-08-17",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
-  "preview_urls": true,
+  "preview_urls": false,
   "routes": [
     {
-      "pattern": "https://myaskai.com/mcp*",
-      "zone_name": "myaskai.com"
+      "pattern": "mcp.myaskai.com",
+      "custom_domain": true
     }
   ],
   "observability": {
     "enabled": true,
     "logs": {
       "enabled": true,
-      "invocation_logs": true
+      "invocation_logs": false
     }
   },
+  "analytics_engine_datasets": [
+    {
+      "binding": "MCP_USAGE",
+      "dataset": "myaskai_mcp_usage"
+    }
+  ],
   "vars": {
     "DOCS_MCP_UPSTREAM": "https://myaskai.mintlify.app/mcp",
     "UPSTREAM_TIMEOUT_MS": "15000"

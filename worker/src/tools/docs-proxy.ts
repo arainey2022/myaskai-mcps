@@ -11,6 +11,7 @@ export type DocsToolName = (typeof DOCS_TOOL_NAMES)[number];
 
 export const DEFAULT_DOCS_MCP_UPSTREAM = 'https://myaskai.mintlify.app/mcp';
 export const DEFAULT_UPSTREAM_TIMEOUT_MS = 15_000;
+export const MAX_UPSTREAM_RESPONSE_BYTES = 2 * 1024 * 1024;
 
 type JsonRpcId = string | number | null;
 
@@ -118,7 +119,38 @@ async function readUpstreamToolResult(
     throw new UpstreamFailure('upstream_http', response.status);
   }
 
-  const body = await response.text();
+  const declaredLength = Number.parseInt(
+    response.headers.get('content-length') ?? '',
+    10,
+  );
+  if (
+    Number.isFinite(declaredLength)
+    && declaredLength > MAX_UPSTREAM_RESPONSE_BYTES
+  ) {
+    throw new UpstreamFailure('invalid_response');
+  }
+
+  if (response.body === null) {
+    throw new UpstreamFailure('invalid_response');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const chunks: string[] = [];
+  let receivedBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    receivedBytes += value.byteLength;
+    if (receivedBytes > MAX_UPSTREAM_RESPONSE_BYTES) {
+      await reader.cancel();
+      throw new UpstreamFailure('invalid_response');
+    }
+    chunks.push(decoder.decode(value, { stream: true }));
+  }
+  chunks.push(decoder.decode());
+  const body = chunks.join('');
   const envelope = parseMcpHttpBody(
     body,
     response.headers.get('content-type') ?? '',
@@ -144,7 +176,7 @@ function errorResult(category: SafeToolEvent['outcome']): CallToolResult {
 }
 
 export const consoleSafeLogger: SafeLogger = (event) => {
-  console.info(JSON.stringify(event));
+  console.info(event);
 };
 
 export interface CallDocsToolOptions {
