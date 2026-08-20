@@ -72,7 +72,8 @@ The public My AskAI MCP server:
 
 ## Learn more
 
-- [Explore the live MCP server](https://myaskai.com/mcp)
+- [Explore the live MCP server](https://mcp.myaskai.com/mcp)
+- [Open the MCP setup page and copy the setup text](https://myaskai.com/mcp)
 - [Visit My AskAI](https://myaskai.com/)
 - [Read the help documentation](https://support.myaskai.com/)
 - [View pricing](https://myaskai.com/pricing)

@@ -10,9 +10,15 @@
     "enabled": true,
     "logs": {
       "enabled": true,
-      "invocation_logs": true
+      "invocation_logs": false
     }
   },
+  "analytics_engine_datasets": [
+    {
+      "binding": "MCP_USAGE",
+      "dataset": "myaskai_mcp_usage_dev"
+    }
+  ],
   "vars": {
     "DOCS_MCP_UPSTREAM": "https://myaskai.mintlify.app/mcp",
     "UPSTREAM_TIMEOUT_MS": "15000"
